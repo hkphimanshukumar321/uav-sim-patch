@@ -84,3 +84,16 @@ DIFS_DURATION = SIFS_DURATION + (2 * SLOT_DURATION)
 CW_MIN = 31  # initial contention window size
 ACK_TIMEOUT = ACK_PACKET_LENGTH / BIT_RATE * 1e6 + SIFS_DURATION + 50  # maximum waiting time for ACK, in us
 MAX_RETRANSMISSION_ATTEMPT = 5
+
+# ------------------- experiment knobs (added for sweeps) ------------------- #
+# Traffic generation (per-drone)
+TRAFFIC_PATTERN = "Poisson"   # "Poisson" or "Uniform"
+TRAFFIC_RATE = 10            # packets/sec per drone when TRAFFIC_PATTERN == "Poisson"
+UNIFORM_IAT_US = (500000, 505000)  # microseconds when TRAFFIC_PATTERN == "Uniform"
+
+# MAC mode control
+MAC_MODE = "TDMA"  # "TDMA", "CSMA", or "ADAPTIVE" (legacy behavior)
+
+# Batch mode helpers
+ENABLE_PLOTS = False
+ENABLE_TIME_PRINTS = False
