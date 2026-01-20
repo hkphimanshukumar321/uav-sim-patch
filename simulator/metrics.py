@@ -89,3 +89,35 @@ class Metrics:
         print('Average hop count is: ', hop_cnt)
         print('Collision num is: ', self.collision_num)
         print('Average mac delay is: ', average_mac_delay, 'ms')
+
+
+    def to_dict(self):
+        """Export key metrics as a dict (batch-friendly)."""
+        arrived = len(self.datapacket_arrived)
+        sent = int(self.datapacket_generated_num)
+
+        if arrived > 0:
+            e2e_delay_ms = float(np.mean(list(self.deliver_time_dict.values())) / 1e3)
+            throughput_kbps = float(np.mean(list(self.throughput_dict.values())) / 1e3)
+            hop_cnt = float(np.mean(list(self.hop_cnt_dict.values())))
+            routing_load = float(self.control_packet_num / arrived)
+        else:
+            e2e_delay_ms = float('nan')
+            throughput_kbps = 0.0
+            hop_cnt = float('nan')
+            routing_load = float('inf')
+
+        pdr_percent = (arrived / sent * 100.0) if sent > 0 else 0.0
+        average_mac_delay_ms = float(np.mean(self.mac_delay)) if len(self.mac_delay) > 0 else float('nan')
+
+        return {
+            'sent': sent,
+            'arrived': arrived,
+            'pdr_percent': pdr_percent,
+            'e2e_delay_ms': e2e_delay_ms,
+            'routing_load': routing_load,
+            'throughput_kbps': throughput_kbps,
+            'hop_count': hop_cnt,
+            'collisions': int(self.collision_num),
+            'mac_delay_ms': average_mac_delay_ms,
+        }
