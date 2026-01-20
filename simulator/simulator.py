@@ -9,7 +9,8 @@ from mobility import start_coords
 from path_planning.astar import astar
 from utils import config
 from utils.util_function import grid_map
-from allocation.central_controller import CentralController
+# CentralController depends on optional optimization libraries.
+# Import lazily only when you actually instantiate it (disabled by default).
 from visualization.static_drawing import scatter_plot, scatter_plot_with_obstacles
 
 
@@ -73,14 +74,16 @@ class Simulator:
             self.drones.append(drone)
 
         # scatter_plot_with_spherical_obstacles(self)
-        scatter_plot(self)
+        if getattr(config, 'ENABLE_PLOTS', True):
+            scatter_plot(self)
 
         self.env.process(self.show_performance())
         self.env.process(self.show_time())
 
     def show_time(self):
         while True:
-            print('At time: ', self.env.now / 1e6, ' s.')
+            if getattr(config, 'ENABLE_TIME_PRINTS', True):
+                print('At time: ', self.env.now / 1e6, ' s.')
 
             # the simulation process is displayed every 0.5s
             yield self.env.timeout(0.5*1e6)
@@ -88,6 +91,7 @@ class Simulator:
     def show_performance(self):
         yield self.env.timeout(self.total_simulation_time - 1)
 
-        scatter_plot(self)
+        if getattr(config, 'ENABLE_PLOTS', True):
+            scatter_plot(self)
 
         self.metrics.print_metrics()

@@ -148,7 +148,8 @@ class RandomWalk3D:
             ax.set_xlabel('X (m)')
             ax.set_ylabel('Y (m)')
             ax.set_zlabel('Z (m)')
-            plt.show()
+            if getattr(config, 'ENABLE_PLOTS', True):
+                plt.show()
 
     # rebound scheme
     def boundary_test(self, next_position, next_velocity, next_direction, next_pitch):
