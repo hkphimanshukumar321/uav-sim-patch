@@ -15,6 +15,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from tests.test_smoke import run_smoke_tests
 from tests.test_functional import run_functional_tests
 from tests.test_integration import run_integration_tests
+from tests.test_comprehensive import run_comprehensive_tests
+from tests.test_multiprocessing import run_multiprocessing_tests
+from tests.test_ghost_functions import run_ghost_check
 
 
 def run_all_tests():
@@ -45,6 +48,8 @@ def run_all_tests():
     func_success, func_result = run_functional_tests()
     results['functional'] = {'success': func_success, 'result': func_result}
     
+
+
     if not func_success:
         print("\n[WARN]  FUNCTIONAL TESTS FAILED - Continuing to integration tests")
     
@@ -54,6 +59,27 @@ def run_all_tests():
     print("#"*60)
     integ_success, integ_result = run_integration_tests()
     results['integration'] = {'success': integ_success, 'result': integ_result}
+    
+    # 4. Comprehensive Tests
+    print("\n" + "#"*60)
+    print("# PHASE 4: COMPREHENSIVE TESTS")
+    print("#"*60)
+    comp_success, comp_result = run_comprehensive_tests()
+    results['comprehensive'] = {'success': comp_success, 'result': comp_result}
+    
+    # 5. Multiprocessing Tests
+    print("\n" + "#"*60)
+    print("# PHASE 5: MULTIPROCESSING TESTS")
+    print("#"*60)
+    mp_success, mp_passed, mp_total = run_multiprocessing_tests()
+    results['multiprocessing'] = {'success': mp_success, 'passed': mp_passed, 'total': mp_total}
+    
+    # 6. Ghost Functions
+    print("\n" + "#"*60)
+    print("# PHASE 6: GHOST FUNCTION CHECK")
+    print("#"*60)
+    ghost_success, ghost_count = run_ghost_check()
+    results['ghost'] = {'success': ghost_success, 'count': ghost_count}
     
     # Final Summary
     print("\n" + "="*60)
@@ -73,8 +99,16 @@ def run_all_tests():
     print(f"    - Failed: {integ_result.failed}")
     if integ_result.warnings > 0:
         print(f"    - Warnings: {integ_result.warnings}")
+
+    print(f"\n[4] Comprehensive Tests: {'[PASS]' if comp_success else '[FAIL]'}")
     
-    overall_success = smoke_success and func_success and integ_success
+    print(f"\n[5] Multiprocessing:     {'[PASS]' if mp_success else '[FAIL]'}")
+    print(f"    - Passed: {mp_passed}/{mp_total}")
+    
+    print(f"\n[6] Ghost Functions:     {'[WARN]' if ghost_count > 0 else '[PASS]'}")
+    print(f"    - Found: {ghost_count}")
+    
+    overall_success = smoke_success and func_success and integ_success and comp_success and mp_success
     
     print("\n" + "="*60)
     if overall_success:

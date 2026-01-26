@@ -215,16 +215,8 @@ def test_known_ghost_functions():
     assert True
 
 
-if __name__ == "__main__":
-    import sys
-    
-    # Allow running as standalone script
-    tests_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(tests_dir)
-    
-    # Add project root to path
-    sys.path.insert(0, project_root)
-    
+def run_ghost_check():
+    """Run ghost function detection check."""
     print("=" * 70)
     print("GHOST FUNCTION DETECTION")
     print("=" * 70)
@@ -235,7 +227,20 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     if ghosts:
         print(f"Found {len(ghosts)} ghost function(s)")
-        sys.exit(0)  # Don't fail, just report
+        # We return True even if ghosts found (warn only mode), or modify as needed
+        return True, len(ghosts) 
     else:
         print("No ghost functions found!")
-        sys.exit(0)
+        return True, 0
+
+
+if __name__ == "__main__":
+    # Allow running as standalone script
+    tests_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(tests_dir)
+    
+    # Add project root to path
+    sys.path.insert(0, project_root)
+    
+    success, count = run_ghost_check()
+    sys.exit(0)

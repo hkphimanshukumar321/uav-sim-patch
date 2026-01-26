@@ -348,7 +348,7 @@ SWEEP_PRESETS = {
         "CIRCULAR_RADIUS": [25, 50, 100],
     },
     "mac_comparison": {
-        "MAC_MODE": ["TDMA", "CSMA", "ADAPTIVE"],
+        "MAC_MODE": ["TDMA", "CSMA"], # "ADAPTIVE"],
         "TRAFFIC_RATE": [5, 10, 20],
     },
     "scalability": {

@@ -255,7 +255,7 @@ def test_mac_modes():
     return True
 
 
-def run_all_tests():
+def run_comprehensive_tests():
     """Run all tests and report results"""
     print("\n" + "="*70)
     print("UAV NETWORK SIMULATOR - COMPREHENSIVE TEST SUITE")
@@ -298,13 +298,15 @@ def run_all_tests():
     print(f"TOTAL: {passed_count}/{len(tests)} tests passed")
     print("="*70)
     
-    if passed_count == len(tests):
+    success = (passed_count == len(tests))
+    if success:
         print("\n✓✓✓ ALL TESTS PASSED! ✓✓✓")
-        return 0
     else:
         print(f"\n✗ {len(tests) - passed_count} test(s) failed")
-        return 1
+        
+    return success, results
 
 
 if __name__ == "__main__":
-    sys.exit(run_all_tests())
+    success, _ = run_comprehensive_tests()
+    sys.exit(0 if success else 1)
