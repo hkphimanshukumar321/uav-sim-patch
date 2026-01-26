@@ -100,24 +100,24 @@ class Drone:
 
         # ============= NEW: Dynamic Behavior Attributes =============
         
-        # Mobility switching parameters
-        self.mobility_switch_interval = 30 * 1e6  # Switch every 30 seconds
+        # Mobility switching parameters (from config with fallback defaults)
+        self.mobility_switch_interval = getattr(config, 'MOBILITY_SWITCH_INTERVAL', 30 * 1e6)
         self.last_mobility_switch_time = 0
-        self.circular_pattern_duration = 15 * 1e6  # Stay circular for 15s
+        self.circular_pattern_duration = getattr(config, 'CIRCULAR_PATTERN_DURATION', 15 * 1e6)
         self.in_circular_mode = False
         self.circular_center = None
-        self.circular_radius = 50  # meters
+        self.circular_radius = getattr(config, 'CIRCULAR_RADIUS', 50)
         
-        # Obstacle avoidance parameters
-        self.obstacle_detection_range = 30  # meters
+        # Obstacle avoidance parameters (from config with fallback defaults)
+        self.obstacle_detection_range = getattr(config, 'OBSTACLE_DETECTION_RANGE', 30)
         self.obstacle_avoidance_active = False
         self.avoidance_direction = None
-        self.min_obstacle_distance = 10  # minimum safe distance
+        self.min_obstacle_distance = getattr(config, 'MIN_OBSTACLE_DISTANCE', 10)
         
-        # MAC protocol switching parameters
-        self.mac_switch_interval = 20 * 1e6  # Evaluate every 20 seconds
+        # MAC protocol switching parameters (from config with fallback defaults)
+        self.mac_switch_interval = getattr(config, 'MAC_SWITCH_INTERVAL', 20 * 1e6)
         self.last_mac_switch_time = 0
-        self.contention_window = 5 * 1e6  # 5 second window for measuring contention
+        self.contention_window = getattr(config, 'CONTENTION_WINDOW', 5 * 1e6)
         self.collision_count = 0
         self.successful_tx_count = 0
         self.failed_tx_count = 0
@@ -149,10 +149,11 @@ class Drone:
         self.window_energy_consumed = 0
         self.window_collisions = 0
         
-        # Contention measurement
+        # Contention measurement (from config with fallback defaults)
         self.recent_transmissions = []  # List of recent tx attempts
-        self.contention_threshold_high = 0.7  # 70% collision rate = high contention
-        self.contention_threshold_low = 0.3   # 30% collision rate = low contention
+        self.contention_threshold_high = getattr(config, 'CONTENTION_THRESHOLD_HIGH', 0.7)
+        self.contention_threshold_low = getattr(config, 'CONTENTION_THRESHOLD_LOW', 0.3)
+
 
         # ============= Start Processes =============
         self.env.process(self.generate_data_packet())

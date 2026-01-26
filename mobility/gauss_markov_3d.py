@@ -41,14 +41,18 @@ class GaussMarkov3D:
         self.my_drone = drone
         self.rng_mobility = random.Random(self.my_drone.identifier + self.my_drone.simulator.seed + 1)
 
-        self.position_update_interval = 1*1e5  # 0.1s
-        self.direction_update_interval = 5*1e5  # 0.5s
-        self.alpha = 0.85
+        # Use config parameters with fallback defaults
+        self.position_update_interval = getattr(config, 'MOBILITY_POSITION_UPDATE_INTERVAL', 1*1e5)  # 0.1s
+        self.direction_update_interval = getattr(config, 'MOBILITY_DIRECTION_UPDATE_INTERVAL', 5*1e5)  # 0.5s
+        self.alpha = getattr(config, 'MOBILITY_ALPHA', 0.85)
         self.move_counter = 1
 
-        self.b1 = 1
-        self.b2 = 1
-        self.b3 = 1
+        # Boundary buffer zones (avoid getting too close to boundary)
+        boundary_buffer = getattr(config, 'MOBILITY_BOUNDARY_BUFFER', 1)
+        self.b1 = boundary_buffer
+        self.b2 = boundary_buffer
+        self.b3 = boundary_buffer
+
 
         self.min_x = 0
         self.max_x = config.MAP_LENGTH

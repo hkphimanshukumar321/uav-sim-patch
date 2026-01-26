@@ -92,8 +92,69 @@ TRAFFIC_RATE = 10            # packets/sec per drone when TRAFFIC_PATTERN == "Po
 UNIFORM_IAT_US = (500000, 505000)  # microseconds when TRAFFIC_PATTERN == "Uniform"
 
 # MAC mode control
-MAC_MODE = "TDMA"  # "TDMA", "CSMA", or "ADAPTIVE" (legacy behavior)
+MAC_MODE = "TDMA"  # "TDMA", "CSMA", "ALOHA", "STDMA", or "ADAPTIVE"
+
+
+# ------------------- TDMA specific parameters ------------------- #
+# NOTE: Slot must be larger than packet transmission time!
+# At 2 Mbps (802.11b), 1KB packet = 8192 bits / 2Mbps = 4096 µs
+# So slot must be > 4096 + SIFS + ACK_time ≈ 5000 µs
+TDMA_SLOT_DURATION = 5000                        # us, duration of one time slot
+TDMA_SLOTS_PER_FRAME = 10                        # number of slots per frame
+TDMA_GUARD_TIME = 50                             # us, guard time between slots
+
+
+# ------------------- CSMA/CA specific parameters ------------------- #
+# CW_MIN is defined in mac layer parameters (line 84)
+# CW_MAX = CW_MIN * 2^(MAX_RETRANSMISSION_ATTEMPT-1)
+CSMA_ENABLE_RTS_CTS = False                      # enable RTS/CTS handshake
+
+# ------------------- ALOHA specific parameters ------------------- #
+ALOHA_RANDOM_BACKOFF_BASE = 500                  # us, base for random backoff
+
+# ------------------- STDMA specific parameters ------------------- #
+# Self-organizing TDMA - dynamic slot allocation
+STDMA_RESERVATION_TIMEOUT = 5                    # frames before slot reallocation
+STDMA_MAX_SLOTS_PER_DRONE = 3                    # max slots a drone can claim
+
 
 # Batch mode helpers
 ENABLE_PLOTS = False
 ENABLE_TIME_PRINTS = False
+
+# ------------------- mobility model parameters ------------------- #
+# Gauss-Markov mobility model (gauss_markov_3d.py)
+MOBILITY_POSITION_UPDATE_INTERVAL = 1 * 1e5      # us (0.1s) - how often position updates
+MOBILITY_DIRECTION_UPDATE_INTERVAL = 5 * 1e5    # us (0.5s) - how often direction changes
+MOBILITY_ALPHA = 0.85                            # 0-1, controls randomness (1=deterministic, 0=random)
+MOBILITY_BOUNDARY_BUFFER = 1                     # meters, distance from boundary to start rebounding
+
+# ------------------- drone dynamic behavior parameters ------------------- #
+# Mobility pattern switching (drone.py)
+MOBILITY_SWITCH_INTERVAL = 30 * 1e6              # us (30s) - interval between mobility pattern switches
+CIRCULAR_PATTERN_DURATION = 15 * 1e6             # us (15s) - duration of circular mobility pattern
+CIRCULAR_RADIUS = 50                             # meters, radius of circular movement pattern
+
+# Obstacle detection and avoidance (drone.py)
+OBSTACLE_DETECTION_RANGE = 30                    # meters, range for detecting obstacles
+MIN_OBSTACLE_DISTANCE = 10                       # meters, minimum safe distance from obstacles
+
+# Adaptive MAC switching (drone.py)
+MAC_SWITCH_INTERVAL = 20 * 1e6                   # us (20s) - interval for MAC protocol evaluation
+CONTENTION_WINDOW = 5 * 1e6                      # us (5s) - window for measuring contention level
+CONTENTION_THRESHOLD_HIGH = 0.7                  # 0-1, switch to TDMA above this contention level
+CONTENTION_THRESHOLD_LOW = 0.3                   # 0-1, switch to CSMA below this contention level
+
+# ------------------- channel model parameters ------------------- #
+# Path loss model selection (large_scale_fading.py)
+PATH_LOSS_MODEL = "general"                      # "general" or "probabilistic_los"
+# Probabilistic LoS parameters (only used when PATH_LOSS_MODEL = "probabilistic_los")
+ETA_LOS = 0.1                                    # LoS additional loss (dB)
+ETA_NLOS = 21                                    # NLoS additional loss (dB)
+PROB_LOS_A = 4.88                                # Environment parameter a
+PROB_LOS_B = 0.429                               # Environment parameter b
+
+# ------------------- randomness control ------------------- #
+# Seeds for reproducibility (use -1 for random seed)
+MASTER_SEED = 2025                               # Master seed for all random generators
+ENABLE_SEED_VARIATION = False                    # If True, add drone ID to seed for per-drone variation
