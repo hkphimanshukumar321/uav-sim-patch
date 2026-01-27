@@ -104,6 +104,10 @@ def test_core_imports(result):
         # Utils
         ("utils.config", None),
         ("utils.util_function", None),
+        
+        # Experiment runners
+        ("experiments.scenario_schema", "scenario_key"),
+        ("experiments.scenario_schema", "make_base_scenarios"),
     ]
     
     all_ok = True

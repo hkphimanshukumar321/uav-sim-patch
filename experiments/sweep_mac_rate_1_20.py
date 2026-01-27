@@ -2,7 +2,6 @@
 
 Run from repo root:
     python3 experiments/sweep_mac_rate_1_20.py
-    python3 experiments/sweep_mac_rate_1_20.py --workers 4  # Parallel execution
 
 Notebook cell equivalent:
     !python3 experiments/sweep_mac_rate_1_20.py
@@ -10,31 +9,21 @@ Notebook cell equivalent:
 
 import csv
 import math
-import argparse
-import time
-import simpy
 import sys
-import os
+from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ensure project root is on sys.path when run from arbitrary working directories
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+import simpy
 
 from utils import config
 from simulator.simulator import Simulator
-from utils.multiprocessing_utils import (
-    ParallelRunner, print_cpu_info, print_performance_summary
-)
 
 
-def run_once_worker(seed: int, mac_mode: str, rate: int):
-    """
-    Worker function for parallel execution.
-    
-    Must be defined at module level for pickling.
-    Returns (result_dict, elapsed_time).
-    """
-    start_time = time.time()
-    
+def run_once(seed: int, mac_mode: str, rate: int):
     # Experiment knobs
     config.MAC_MODE = mac_mode
     config.TRAFFIC_PATTERN = "Poisson"
@@ -57,103 +46,18 @@ def run_once_worker(seed: int, mac_mode: str, rate: int):
     for k, v in list(row.items()):
         if isinstance(v, float) and (math.isinf(v) or math.isnan(v)):
             row[k] = str(v)
-    
-    elapsed_time = time.time() - start_time
-    row["inference_time_s"] = elapsed_time
-    
-    print(f"  [OK] MAC={mac_mode}, rate={rate} completed in {elapsed_time:.2f}s")
 
-    return row, elapsed_time
-
-
-def run_once(seed: int, mac_mode: str, rate: int):
-    """Run a single experiment (sequential version)."""
-    result, _ = run_once_worker(seed, mac_mode, rate)
-    return result
+    return row
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Sweep TRAFFIC_RATE for MAC modes and export CSV"
-    )
-    parser.add_argument(
-        "--workers", "-w",
-        type=int,
-        default=None,
-        help="Number of parallel workers (default: auto-detect, use 1 for sequential)"
-    )
-    parser.add_argument(
-        "--sequential",
-        action="store_true",
-        help="Force sequential execution"
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=2025,
-        help="Random seed (default: 2025)"
-    )
-    
-    args = parser.parse_args()
-    seed = args.seed
-    
-    # Generate all (mac_mode, rate) combinations
-    combinations = []
+    seed = 2025
+    rows = []
+
     for mac_mode in ("TDMA", "CSMA"):
         for rate in range(1, 21):
-            combinations.append((seed, mac_mode, rate))
-    
-    total_runs = len(combinations)
-    
-    print(f"\n{'='*60}")
-    print(f"MAC Rate Sweep Experiment")
-    print(f"{'='*60}")
-    print(f"Total configurations: {total_runs}")
-    print(f"MAC Modes: TDMA, CSMA")
-    print(f"Traffic Rates: 1-20")
-    print(f"Seed: {seed}")
-    
-    if args.sequential or args.workers == 1:
-        # Sequential execution
-        print_cpu_info(workers_used=1)
-        print("Running in sequential mode...")
-        
-        start_time = time.time()
-        rows = []
-        individual_times = []
-        
-        for combo in combinations:
-            print(f"Running MAC={combo[1]}, TRAFFIC_RATE={combo[2]} ...")
-            result, elapsed = run_once_worker(*combo)
-            rows.append(result)
-            individual_times.append(elapsed)
-        
-        total_time = time.time() - start_time
-        print_performance_summary(
-            total_runs=total_runs,
-            total_time=total_time,
-            workers_used=1,
-            individual_times=individual_times
-        )
-    else:
-        # Parallel execution
-        with ParallelRunner(n_workers=args.workers, show_progress=False) as runner:
-            print(f"Running {total_runs} configurations in parallel...")
-            
-            start_time = time.time()
-            results = runner.pool.starmap(run_once_worker, combinations)
-            total_time = time.time() - start_time
-            
-            # Extract rows and times
-            rows = [r[0] for r in results]
-            individual_times = [r[1] for r in results]
-            
-            print_performance_summary(
-                total_runs=total_runs,
-                total_time=total_time,
-                workers_used=runner.n_workers,
-                individual_times=individual_times
-            )
+            print(f"Running MAC={mac_mode}, TRAFFIC_RATE={rate} ...")
+            rows.append(run_once(seed=seed, mac_mode=mac_mode, rate=rate))
 
     # Column order
     fieldnames = [
@@ -162,7 +66,6 @@ def main():
         "pdr_percent", "e2e_delay_ms",
         "routing_load", "throughput_kbps",
         "hop_count", "collisions", "mac_delay_ms",
-        "inference_time_s",
     ]
 
     out_csv = "sweep_mac_rate_1_20.csv"
@@ -181,8 +84,7 @@ def main():
             f"Delay={r['e2e_delay_ms']:.2f}ms "
             f"RL={r['routing_load']:.3f} "
             f"Thr={r['throughput_kbps']:.2f}Kbps "
-            f"Coll={r['collisions']} "
-            f"Time={r['inference_time_s']:.2f}s"
+            f"Coll={r['collisions']}"
         )
 
     print(f"\nSaved CSV: {out_csv}")
@@ -190,4 +92,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

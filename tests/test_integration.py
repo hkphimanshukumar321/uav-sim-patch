@@ -96,7 +96,7 @@ def test_architecture_imports(result):
         from mac.tdma import Tdma
         
         # Protocol Stack - PHY Layer
-        from phy.phy import unicast, broadcast, multicast
+        from phy.phy import Phy
         from phy.large_scale_fading import sinr_calculator
         
         # Control Modules
@@ -109,6 +109,9 @@ def test_architecture_imports(result):
         assert hasattr(Simulator, '__init__'), "Simulator missing __init__"
         assert hasattr(Drone, 'generate_data_packet'), "Drone missing generate_data_packet"
         assert hasattr(Channel, 'create_inbox_for_receiver'), "Channel missing create_inbox_for_receiver"
+        assert hasattr(Phy, 'unicast'), "Phy missing unicast method"
+        assert hasattr(Phy, 'broadcast'), "Phy missing broadcast method"
+        assert hasattr(Phy, 'multicast'), "Phy missing multicast method"
         
         result.add_pass("Architecture class structure validation")
         return True
@@ -170,7 +173,7 @@ def test_simulator_creates_all_components(result):
 def test_packet_flow_architecture(result, sim):
     """Test complete packet flow through architectural layers"""
     print("\n[3] PACKET FLOW THROUGH ARCHITECTURE...")
-    print("    Application → Transport → Network → MAC → PHY → Channel")
+    print("    Application -> Transport -> Network -> MAC -> PHY -> Channel")
     
     if sim is None:
         result.add_fail("Packet flow", "No simulator available")

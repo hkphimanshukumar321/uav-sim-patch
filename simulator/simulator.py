@@ -76,8 +76,9 @@ class Simulator:
         if getattr(config, 'ENABLE_PLOTS', True):
             scatter_plot(self)
 
-        self.env.process(self.show_performance())
-        self.env.process(self.show_time())
+        if getattr(config, 'ENABLE_TIME_PRINTS', True):
+            self.env.process(self.show_performance())
+            self.env.process(self.show_time())
 
     def show_time(self):
         while True:
