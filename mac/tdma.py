@@ -1,5 +1,6 @@
 import simpy
 import random
+from collections import defaultdict
 from simulator.log import logger
 from phy.phy import Phy
 from utils import config
@@ -71,24 +72,39 @@ class Tdma:
         from simulator.log import logger
         logger.info(f'TDMA initialized: {total_drones} drones, {self.slots_per_frame} slots/frame, {self.frame_duration} us frame')
         
+        # Dynamic TDMA attributes
+        self.enable_dynamic_allocation = getattr(config, 'TDMA_ENABLE_DYNAMIC', True)
+        self.queue_depth_history = defaultdict(list)
+        self.dynamic_realloc_interval = 500 * 1e3  # 500ms between reallocation checks
+        self.max_slots_per_drone = getattr(config, 'TDMA_MAX_SLOTS_PER_DRONE', 3)
+        
         # Slot assignment - can be static or dynamic
         self.slot_assignment = self._initialize_slot_assignment()
         
         # Start frame synchronization process
         self.env.process(self._frame_sync())
+        
+        # Start dynamic reallocation process if enabled
+        if self.enable_dynamic_allocation:
+            self.env.process(self._dynamic_slot_reallocation())
 
     def _initialize_slot_assignment(self):
         """
         Initialize slot assignments for all drones
-        Strategy: Round-robin assignment or can be customized
+        Strategy: Round-robin assignment based on TDMA_SLOTS_PER_DRONE
         :return: dictionary mapping drone_id to list of assigned slot numbers
         """
         slot_assignment = {}
         total_drones = len(self.simulator.drones)
+        slots_per_drone = getattr(config, 'TDMA_SLOTS_PER_DRONE', 1)
         
-        # Simple round-robin assignment
+        # Assign slots to each drone
         for i, drone in enumerate(self.simulator.drones):
-            slot_assignment[drone.identifier] = [i % self.slots_per_frame]
+            assigned_slots = []
+            for slot_idx in range(slots_per_drone):
+                slot_num = (i + slot_idx * total_drones) % self.slots_per_frame
+                assigned_slots.append(slot_num)
+            slot_assignment[drone.identifier] = assigned_slots
         
         logger.info('TDMA slot assignment initialized: %s', slot_assignment)
         return slot_assignment
@@ -104,6 +120,96 @@ class Tdma:
                 self.current_slot = slot_num
                 logger.debug('At time: %s (us) ---- Frame slot: %s', self.env.now, slot_num)
                 yield self.env.timeout(self.slot_duration)
+
+    def _dynamic_slot_reallocation(self):
+        """
+        Periodically reallocate slots based on queue depths (like real TDMA systems).
+        Drones with deeper queues get more slots, drones with empty queues give them up.
+        This enables TDMA to adapt to traffic patterns like CSMA does.
+        :return: none
+        """
+        while True:
+            yield self.env.timeout(self.dynamic_realloc_interval)
+            
+            try:
+                self._reallocate_slots()
+            except Exception as e:
+                logger.warning('At time: %s (us) ---- Dynamic reallocation failed: %s',
+                             self.env.now, str(e))
+    
+    def _reallocate_slots(self):
+        """
+        Reallocate slots based on current queue depths.
+        Strategy: Queue-aware allocation (busier drones get more slots)
+        :return: none
+        """
+        # Collect queue depths from all drones
+        queue_depths = {}
+        total_queue = 0
+        
+        for drone in self.simulator.drones:
+            queue_depth = drone.transmitting_queue.qsize()
+            queue_depths[drone.identifier] = queue_depth
+            total_queue += queue_depth
+        
+        if total_queue == 0:
+            # All queues empty, use round-robin
+            self._redistribute_slots_roundrobin()
+            return
+        
+        # Allocate slots proportionally to queue depth
+        new_assignment = {}
+        available_slots = list(range(self.slots_per_frame))
+        self.rng_mac.shuffle(available_slots)
+        
+        slot_idx = 0
+        for drone in self.simulator.drones:
+            queue_depth = queue_depths[drone.identifier]
+            
+            # Calculate how many slots this drone should get
+            if total_queue > 0:
+                proportion = queue_depth / total_queue
+            else:
+                proportion = 1.0 / len(self.simulator.drones)
+            
+            desired_slots = max(1, min(
+                int(proportion * self.slots_per_frame),
+                self.max_slots_per_drone
+            ))
+            
+            assigned_slots = []
+            for _ in range(min(desired_slots, len(available_slots))):
+                if available_slots:
+                    assigned_slots.append(available_slots.pop())
+            
+            if not assigned_slots and available_slots:
+                assigned_slots.append(available_slots.pop())
+            
+            new_assignment[drone.identifier] = assigned_slots
+        
+        # Check if assignment changed
+        if new_assignment != self.slot_assignment:
+            self.slot_assignment = new_assignment
+            logger.info('At time: %s (us) ---- TDMA dynamic reallocation (queue depths: %s): %s',
+                       self.env.now, queue_depths, self.slot_assignment)
+    
+    def _redistribute_slots_roundrobin(self):
+        """
+        When all queues are empty, redistribute slots evenly (round-robin).
+        :return: none
+        """
+        assignment = {}
+        total_drones = len(self.simulator.drones)
+        
+        for i, drone in enumerate(self.simulator.drones):
+            assigned_slots = []
+            for slot_idx in range(self.max_slots_per_drone):
+                slot_num = (i + slot_idx * total_drones) % self.slots_per_frame
+                assigned_slots.append(slot_num)
+            assignment[drone.identifier] = assigned_slots
+        
+        if assignment != self.slot_assignment:
+            self.slot_assignment = assignment
 
     def _get_next_slot_start_time(self):
         """

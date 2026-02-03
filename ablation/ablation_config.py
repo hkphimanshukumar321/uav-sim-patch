@@ -348,12 +348,28 @@ SWEEP_PRESETS = {
         "CIRCULAR_RADIUS": [25, 50, 100],
     },
     "mac_comparison": {
-        "MAC_MODE": ["TDMA", "CSMA"], # "ADAPTIVE"],
+        "MAC_MODE": ["TDMA", "CSMA"],
         "TRAFFIC_RATE": [5, 10, 20],
+    },
+    # HIGH TRAFFIC: to reach TDMA/CSMA crossover point where TDMA wins
+    "high_traffic_crossover": {
+        "MAC_MODE": ["TDMA", "CSMA"],
+        "TRAFFIC_RATE": [20, 25, 30, 35, 40],
+    },
+    # Extended range to confirm crossover
+    "extended_traffic": {
+        "MAC_MODE": ["TDMA", "CSMA"],
+        "TRAFFIC_RATE": [10, 20, 30, 40, 50],
     },
     "scalability": {
         "NUMBER_OF_DRONES": [5, 10, 20, 30],
         "TRAFFIC_RATE": [5, 10 , 20],
+    },
+    # High drone count - TDMA should win here due to collision-free
+    "dense_swarm": {
+        "MAC_MODE": ["TDMA", "CSMA"],
+        "NUMBER_OF_DRONES": [20, 30, 40, 50],
+        "TRAFFIC_RATE": [15],
     },
     "full_factorial": {
         "MAC_MODE": ["TDMA", "CSMA"],
@@ -362,3 +378,4 @@ SWEEP_PRESETS = {
         "MOBILITY_ALPHA": [0.5, 0.85],
     },
 }
+

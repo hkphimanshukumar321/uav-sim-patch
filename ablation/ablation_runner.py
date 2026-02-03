@@ -361,10 +361,16 @@ class AblationRunner:
             try:
                 from ablation.plot_results import plot_mac_comparison
                 plots_dir = os.path.join(run_dir, "plots")
+                os.makedirs(plots_dir, exist_ok=True)
                 plot_mac_comparison(filepath, plots_dir)
                 print(f"Plots saved to: {plots_dir}/")
             except Exception as e:
+                import traceback
                 print(f"Warning: Could not generate plots: {e}")
+                print("Traceback:")
+                traceback.print_exc()
+                print("\nTo generate plots manually, run:")
+                print(f"  python -m ablation.plot_results \"{filepath}\" -o \"{os.path.join(run_dir, 'plots')}\"")
         
         print(f"{'='*60}")
         
