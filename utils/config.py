@@ -99,15 +99,16 @@ MAC_MODE = "TDMA"  # "TDMA", "CSMA", "ALOHA", "STDMA", or "ADAPTIVE"
 # NOTE: Slot must be larger than packet transmission time!
 # At 2 Mbps (802.11b), 1KB packet = 8192 bits / 2Mbps = 4096 µs
 # So slot must be > 4096 + SIFS + ACK_time ≈ 5000 µs
-TDMA_SLOT_DURATION = 5000                        # us, duration of one time slot
-TDMA_SLOTS_PER_FRAME = 10                        # number of slots per frame
-TDMA_GUARD_TIME = 50                             # us, guard time between slots
+# OPTIMIZED: Dynamic frame sizing implemented in tdma.py
+TDMA_SLOT_DURATION = 5200                        # us, optimized (packet + ACK + margin)
+TDMA_SLOTS_PER_FRAME = 0                         # 0 = dynamic (matches drone count for optimal throughput)
+TDMA_GUARD_TIME = 10                             # us, reduced from 50 for lower overhead
 
 
 # ------------------- CSMA/CA specific parameters ------------------- #
 # CW_MIN is defined in mac layer parameters (line 84)
 # CW_MAX = CW_MIN * 2^(MAX_RETRANSMISSION_ATTEMPT-1)
-CSMA_ENABLE_RTS_CTS = False                      # enable RTS/CTS handshake
+CSMA_ENABLE_RTS_CTS = True                      # enable RTS/CTS handshake
 
 # ------------------- ALOHA specific parameters ------------------- #
 ALOHA_RANDOM_BACKOFF_BASE = 500                  # us, base for random backoff
@@ -119,8 +120,8 @@ STDMA_MAX_SLOTS_PER_DRONE = 3                    # max slots a drone can claim
 
 
 # Batch mode helpers
-ENABLE_PLOTS = False
-ENABLE_TIME_PRINTS = False
+ENABLE_PLOTS = True
+ENABLE_TIME_PRINTS = True
 
 # ------------------- mobility model parameters ------------------- #
 # Gauss-Markov mobility model (gauss_markov_3d.py)
@@ -157,4 +158,4 @@ PROB_LOS_B = 0.429                               # Environment parameter b
 # ------------------- randomness control ------------------- #
 # Seeds for reproducibility (use -1 for random seed)
 MASTER_SEED = 2025                               # Master seed for all random generators
-ENABLE_SEED_VARIATION = False                    # If True, add drone ID to seed for per-drone variation
+ENABLE_SEED_VARIATION = True                    # If True, add drone ID to seed for per-drone variation

@@ -54,11 +54,22 @@ class Tdma:
         self.wait_ack_process_count = 0
         self.wait_ack_process = None
 
-        # TDMA-specific attributes
-        self.slot_duration = getattr(config, 'TDMA_SLOT_DURATION', 1000)  # default 1000 us
-        self.slots_per_frame = getattr(config, 'TDMA_SLOTS_PER_FRAME', 10)  # default 10 slots
+        # TDMA-specific attributes with DYNAMIC FRAME SIZING
+        # For throughput improvement: slots_per_frame = number of drones
+        total_drones = len(self.simulator.drones)
+        
+        self.slot_duration = getattr(config, 'TDMA_SLOT_DURATION', 5200)  # optimized: packet + ACK + margin
+        
+        # DYNAMIC FRAME: 1 slot per drone for minimum wait time
+        self.slots_per_frame = getattr(config, 'TDMA_SLOTS_PER_FRAME', None)
+        if self.slots_per_frame is None or self.slots_per_frame == 0:
+            self.slots_per_frame = total_drones  # Dynamic: match drone count
+        
         self.frame_duration = self.slot_duration * self.slots_per_frame
-        self.guard_time = getattr(config, 'TDMA_GUARD_TIME', 10)  # guard time in us
+        self.guard_time = getattr(config, 'TDMA_GUARD_TIME', 10)  # reduced from 50 to 10 us
+        
+        from simulator.log import logger
+        logger.info(f'TDMA initialized: {total_drones} drones, {self.slots_per_frame} slots/frame, {self.frame_duration} us frame')
         
         # Slot assignment - can be static or dynamic
         self.slot_assignment = self._initialize_slot_assignment()

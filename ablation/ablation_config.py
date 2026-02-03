@@ -353,7 +353,7 @@ SWEEP_PRESETS = {
     },
     "scalability": {
         "NUMBER_OF_DRONES": [5, 10, 20, 30],
-        "TRAFFIC_RATE": [5, 10],
+        "TRAFFIC_RATE": [5, 10 , 20],
     },
     "full_factorial": {
         "MAC_MODE": ["TDMA", "CSMA"],

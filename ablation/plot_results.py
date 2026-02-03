@@ -13,13 +13,64 @@ Usage:
 
 import os
 import csv
+import glob
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Dict, List, Optional
 
 
-def load_results(csv_path: str) -> List[Dict]:
-    """Load results from CSV file"""
+def find_latest_results(results_dir: str = "results") -> Optional[str]:
+    """
+    Find the most recent results CSV file in the results directory.
+    
+    Looks for:
+    1. Latest run_YYYYMMDD_HHMMSS/results.csv in run directories
+    2. Latest ablation_YYYYMMDD_HHMMSS.csv files (legacy format)
+    
+    Returns:
+        Path to the latest results CSV file, or None if not found
+    """
+    if not os.path.exists(results_dir):
+        print(f"Results directory not found: {results_dir}")
+        return None
+    
+    # Look for run directories first (new format)
+    run_dirs = glob.glob(os.path.join(results_dir, "run_*"))
+    run_csvs = []
+    for run_dir in run_dirs:
+        csv_path = os.path.join(run_dir, "results.csv")
+        if os.path.exists(csv_path):
+            run_csvs.append(csv_path)
+    
+    # Look for legacy format CSV files
+    legacy_csvs = glob.glob(os.path.join(results_dir, "ablation_*.csv"))
+    
+    # Combine all CSVs and sort by modification time
+    all_csvs = run_csvs + legacy_csvs
+    
+    if not all_csvs:
+        print(f"No results CSV files found in {results_dir}")
+        return None
+    
+    # Sort by modification time (newest first)
+    all_csvs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+    
+    latest = all_csvs[0]
+    print(f"Auto-discovered latest results: {latest}")
+    return latest
+
+
+def load_results(csv_path: str = None) -> List[Dict]:
+    """
+    Load results from CSV file.
+    
+    If csv_path is None, auto-discovers the latest results file.
+    """
+    if csv_path is None:
+        csv_path = find_latest_results()
+        if csv_path is None:
+            return []
+    
     results = []
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
@@ -306,8 +357,20 @@ def plot_mac_comparison(csv_path: str, output_dir: str = "plots"):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Generate ablation study plots")
-    parser.add_argument("csv_path", help="Path to results CSV file")
+    parser.add_argument("csv_path", nargs='?', default=None, 
+                       help="Path to results CSV file (optional, auto-discovers latest if not provided)")
     parser.add_argument("--output", "-o", default="plots", help="Output directory")
+    parser.add_argument("--results-dir", "-r", default="results", 
+                       help="Directory to search for results (when csv_path not provided)")
     args = parser.parse_args()
     
-    plot_mac_comparison(args.csv_path, args.output)
+    # Auto-discover CSV if not provided
+    csv_path = args.csv_path
+    if csv_path is None:
+        csv_path = find_latest_results(args.results_dir)
+        if csv_path is None:
+            print("Error: No results file found and none specified")
+            exit(1)
+    
+    plot_mac_comparison(csv_path, args.output)
+

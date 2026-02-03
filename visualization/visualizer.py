@@ -323,6 +323,11 @@ class SimulationVisualizer:
 
     def create_interactive_visualization(self):
         """Create an interactive visualization with a slider for time navigation"""
+        # Skip if plots are disabled (batch mode)
+        if not getattr(config, 'ENABLE_PLOTS', True):
+            print("Interactive visualization skipped (batch mode)")
+            return
+            
         if not self.timestamps:
             print("No timestamps available for interactive visualization")
             return

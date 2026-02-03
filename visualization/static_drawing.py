@@ -8,6 +8,10 @@ from phy.large_scale_fading import maximum_communication_range
 
 def scatter_plot(simulator):
     """Draw a static scatter plot, includes communication edges (without obstacles)"""
+    
+    # Skip if plots are disabled (batch mode)
+    if not getattr(config, 'ENABLE_PLOTS', True):
+        return
 
     fig = plt.figure()
     ax = fig.add_axes(Axes3D(fig))
@@ -34,9 +38,15 @@ def scatter_plot(simulator):
     ax.set_ylabel('Y (m)')
     ax.set_zlabel('Z (m)')
 
-    plt.show()
+    # Use non-blocking show to avoid halting execution
+    plt.show(block=False)
+    plt.pause(0.1)  # Brief pause to render
 
 def scatter_plot_with_obstacles(simulator, grid, path_list):
+    # Skip if plots are disabled (batch mode)
+    if not getattr(config, 'ENABLE_PLOTS', True):
+        return
+        
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
@@ -63,4 +73,7 @@ def scatter_plot_with_obstacles(simulator, grid, path_list):
     ax.set_ylabel('Y (m)')
     ax.set_zlabel('Z (m)')
 
-    plt.show()
+    # Use non-blocking show to avoid halting execution
+    plt.show(block=False)
+    plt.pause(0.1)  # Brief pause to render
+

@@ -31,6 +31,10 @@ import time
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 
+# Use non-interactive backend BEFORE importing pyplot (prevents blocking figures)
+import matplotlib
+matplotlib.use('Agg')
+
 import simpy
 
 # Add parent directory to path for imports
@@ -296,20 +300,31 @@ class AblationRunner:
             
         print("="*100 + "\n")
     
-    def save_results(self, filename: str = None) -> str:
-        """Save results to CSV file"""
+    def save_results(self, filename: str = None, generate_plots: bool = True) -> str:
+        """
+        Save results to CSV file in a timestamped run directory.
+        
+        Each run creates a new directory: results/run_YYYYMMDD_HHMMSS/
+        containing:
+        - results.csv (the ablation results)
+        - plots/ (generated plots if enabled)
+        
+        This preserves previous runs and keeps results organized.
+        """
         if not self.results:
             print("No results to save")
             return None
         
-        # Create output directory
-        os.makedirs(self.output_dir, exist_ok=True)
+        # Create timestamped run directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_dir = os.path.join(self.output_dir, f"run_{timestamp}")
+        os.makedirs(run_dir, exist_ok=True)
         
+        # Create CSV filename
         if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"ablation_{timestamp}.csv"
+            filename = "results.csv"
         
-        filepath = os.path.join(self.output_dir, filename)
+        filepath = os.path.join(run_dir, filename)
         
         # Get all column names
         all_keys = set()
@@ -338,7 +353,26 @@ class AblationRunner:
             for r in self.results:
                 writer.writerow({k: r.get(k, "") for k in fieldnames})
         
+        print(f"\n{'='*60}")
         print(f"Results saved to: {filepath}")
+        
+        # Generate plots if enabled
+        if generate_plots:
+            try:
+                from ablation.plot_results import plot_mac_comparison
+                plots_dir = os.path.join(run_dir, "plots")
+                plot_mac_comparison(filepath, plots_dir)
+                print(f"Plots saved to: {plots_dir}/")
+            except Exception as e:
+                print(f"Warning: Could not generate plots: {e}")
+        
+        print(f"{'='*60}")
+        
+        # Also save a copy to the main output dir with timestamp for backwards compatibility
+        legacy_filepath = os.path.join(self.output_dir, f"ablation_{timestamp}.csv")
+        import shutil
+        shutil.copy(filepath, legacy_filepath)
+        
         return filepath
 
 
