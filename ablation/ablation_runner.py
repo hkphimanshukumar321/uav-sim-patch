@@ -28,8 +28,12 @@ import math
 import argparse
 import itertools
 import time
+import warnings
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
+
+# Suppress the "found in sys.modules" warning (harmless, caused by python -m execution)
+warnings.filterwarnings("ignore", message=".*found in sys.modules.*", category=RuntimeWarning)
 
 # Use non-interactive backend BEFORE importing pyplot (prevents blocking figures)
 import matplotlib
