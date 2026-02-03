@@ -48,6 +48,260 @@ from utils.multiprocessing_utils import (
 )
 
 
+class TimeEstimator:
+    """
+    Estimates ablation study runtime based on system specs and parameters.
+    
+    Provides:
+    - Pre-run time estimation based on historical benchmarks
+    - Live progress tracking with ETA updates
+    - System resource information display
+    """
+    
+    # Historical benchmark: seconds per simulation run (at 30s sim time)
+    # Calibrated from actual runs on various systems
+    BASE_TIME_PER_RUN = 270  # ~4.5 minutes per run baseline
+    
+    # Scaling factors
+    SIM_TIME_FACTOR = 30 * 1e6  # baseline sim time (30s in microseconds)
+    DRONE_SCALING_EXPONENT = 1.3  # runtime scales ~O(n^1.3) with drones
+    
+    def __init__(self):
+        self.start_time = None
+        self.completed_runs = 0
+        self.total_runs = 0
+        self.run_times = []
+        
+    @staticmethod
+    def get_system_info() -> Dict[str, Any]:
+        """Gather system information for estimation and display."""
+        import platform
+        
+        info = {
+            "os": platform.system(),
+            "os_version": platform.release(),
+            "processor": platform.processor() or "Unknown",
+            "python_version": platform.python_version(),
+            "cpu_count": os.cpu_count() or 1,
+        }
+        
+        # Try to get more detailed CPU info
+        try:
+            import multiprocessing
+            info["cpu_count"] = multiprocessing.cpu_count()
+        except:
+            pass
+        
+        # Try to get CPU frequency (Windows)
+        try:
+            import subprocess
+            if platform.system() == "Windows":
+                result = subprocess.run(
+                    ["wmic", "cpu", "get", "maxclockspeed"],
+                    capture_output=True, text=True, timeout=5
+                )
+                lines = [l.strip() for l in result.stdout.split('\n') if l.strip() and not l.strip().startswith('Max')]
+                if lines:
+                    info["cpu_freq_mhz"] = int(lines[0])
+            elif platform.system() == "Linux":
+                with open('/proc/cpuinfo', 'r') as f:
+                    for line in f:
+                        if 'cpu MHz' in line:
+                            info["cpu_freq_mhz"] = int(float(line.split(':')[1].strip()))
+                            break
+        except:
+            info["cpu_freq_mhz"] = None
+            
+        return info
+    
+    def estimate_single_run_time(self, params: Dict[str, Any]) -> float:
+        """
+        Estimate time for a single simulation run in seconds.
+        
+        Args:
+            params: Simulation parameters
+            
+        Returns:
+            Estimated time in seconds
+        """
+        # Base time
+        estimated = self.BASE_TIME_PER_RUN
+        
+        # Scale by simulation time
+        sim_time = params.get("SIM_TIME", getattr(config, "SIM_TIME", self.SIM_TIME_FACTOR))
+        estimated *= (sim_time / self.SIM_TIME_FACTOR)
+        
+        # Scale by number of drones
+        num_drones = params.get("NUMBER_OF_DRONES", getattr(config, "NUMBER_OF_DRONES", 10))
+        estimated *= (num_drones / 10) ** self.DRONE_SCALING_EXPONENT
+        
+        # Adjust for traffic rate (higher traffic = more messages = longer)
+        traffic_rate = params.get("TRAFFIC_RATE", getattr(config, "TRAFFIC_RATE", 5))
+        estimated *= (1 + 0.1 * (traffic_rate / 5))
+        
+        return estimated
+    
+    def estimate_total_time(
+        self, 
+        sweep_config: Dict[str, List[Any]], 
+        seeds: List[int],
+        n_workers: int = None
+    ) -> Dict[str, Any]:
+        """
+        Estimate total ablation study runtime.
+        
+        Args:
+            sweep_config: Parameter sweep configuration
+            seeds: List of seeds
+            n_workers: Number of parallel workers (None = auto)
+            
+        Returns:
+            Dictionary with estimation details
+        """
+        import itertools
+        
+        # Calculate total runs
+        combinations = list(itertools.product(*sweep_config.values()))
+        total_runs = len(combinations) * len(seeds)
+        
+        # Get worker count
+        if n_workers is None:
+            n_workers = max(1, (os.cpu_count() or 1) - 1)
+        
+        # Calculate average run time based on parameter combinations
+        total_sequential_time = 0
+        for combo in combinations:
+            params = dict(zip(sweep_config.keys(), combo))
+            for _ in seeds:
+                total_sequential_time += self.estimate_single_run_time(params)
+        
+        # Parallel speedup (with overhead factor)
+        parallel_overhead = 1.15  # 15% overhead for process management
+        parallel_time = (total_sequential_time / n_workers) * parallel_overhead
+        
+        return {
+            "total_runs": total_runs,
+            "configurations": len(combinations),
+            "seeds_per_config": len(seeds),
+            "workers": n_workers,
+            "sequential_time_secs": total_sequential_time,
+            "parallel_time_secs": parallel_time,
+            "estimated_minutes": parallel_time / 60,
+            "estimated_hours": parallel_time / 3600,
+        }
+    
+    def print_estimation(self, estimate: Dict[str, Any], system_info: Dict[str, Any] = None):
+        """Print formatted time estimation and system info."""
+        if system_info is None:
+            system_info = self.get_system_info()
+        
+        print("\n" + "="*70)
+        print("ABLATION STUDY TIME ESTIMATION")
+        print("="*70)
+        
+        # System info
+        print("\n📊 SYSTEM INFORMATION:")
+        print(f"   OS:           {system_info['os']} {system_info['os_version']}")
+        print(f"   Processor:    {system_info['processor']}")
+        if system_info.get('cpu_freq_mhz'):
+            print(f"   CPU Freq:     {system_info['cpu_freq_mhz']} MHz")
+        print(f"   CPU Cores:    {system_info['cpu_count']}")
+        print(f"   Python:       {system_info['python_version']}")
+        
+        # Run configuration
+        print("\n📋 RUN CONFIGURATION:")
+        print(f"   Configurations: {estimate['configurations']}")
+        print(f"   Seeds/Config:   {estimate['seeds_per_config']}")
+        print(f"   Total Runs:     {estimate['total_runs']}")
+        print(f"   Workers:        {estimate['workers']}")
+        
+        # Time estimate
+        print("\n⏱️  TIME ESTIMATE:")
+        if estimate['estimated_hours'] >= 1:
+            print(f"   Estimated:      {estimate['estimated_hours']:.1f} hours ({estimate['estimated_minutes']:.0f} minutes)")
+        else:
+            print(f"   Estimated:      {estimate['estimated_minutes']:.1f} minutes")
+        
+        print(f"   Sequential:     {estimate['sequential_time_secs']/60:.1f} minutes (if 1 worker)")
+        print(f"   Speedup:        {estimate['sequential_time_secs']/estimate['parallel_time_secs']:.1f}x")
+        
+        # Calculate completion time
+        from datetime import datetime, timedelta
+        completion_time = datetime.now() + timedelta(seconds=estimate['parallel_time_secs'])
+        print(f"   Expected Done:  {completion_time.strftime('%H:%M:%S')}")
+        
+        print("="*70 + "\n")
+    
+    def start_tracking(self, total_runs: int):
+        """Start progress tracking."""
+        self.start_time = time.time()
+        self.total_runs = total_runs
+        self.completed_runs = 0
+        self.run_times = []
+    
+    def record_run(self, run_time: float):
+        """Record a completed run time."""
+        self.completed_runs += 1
+        self.run_times.append(run_time)
+    
+    def get_progress(self) -> Dict[str, Any]:
+        """Get current progress with ETA."""
+        if self.start_time is None:
+            return {}
+        
+        elapsed = time.time() - self.start_time
+        
+        if self.completed_runs > 0:
+            avg_time = sum(self.run_times) / len(self.run_times)
+            remaining_runs = self.total_runs - self.completed_runs
+            eta_seconds = remaining_runs * avg_time
+        else:
+            eta_seconds = 0
+        
+        return {
+            "completed": self.completed_runs,
+            "total": self.total_runs,
+            "percent": (self.completed_runs / self.total_runs * 100) if self.total_runs > 0 else 0,
+            "elapsed_secs": elapsed,
+            "eta_secs": eta_seconds,
+            "avg_run_time": sum(self.run_times) / len(self.run_times) if self.run_times else 0,
+        }
+    
+    def print_progress(self, extra_info: str = ""):
+        """Print current progress with ETA."""
+        prog = self.get_progress()
+        if not prog:
+            return
+        
+        elapsed_str = self._format_time(prog['elapsed_secs'])
+        eta_str = self._format_time(prog['eta_secs'])
+        
+        bar_width = 30
+        filled = int(bar_width * prog['percent'] / 100)
+        bar = "█" * filled + "░" * (bar_width - filled)
+        
+        print(f"\r  [{bar}] {prog['percent']:.1f}% | "
+              f"{prog['completed']}/{prog['total']} | "
+              f"Elapsed: {elapsed_str} | ETA: {eta_str} {extra_info}",
+              end="", flush=True)
+    
+    @staticmethod
+    def _format_time(seconds: float) -> str:
+        """Format seconds as human readable string."""
+        if seconds < 60:
+            return f"{seconds:.0f}s"
+        elif seconds < 3600:
+            return f"{seconds/60:.1f}m"
+        else:
+            return f"{seconds/3600:.1f}h"
+
+
+# Global estimator instance
+time_estimator = TimeEstimator()
+
+
+
+
 def _run_single_task(params: Dict[str, Any], seed: int) -> Tuple[Dict[str, Any], float]:
     """
     Standalone worker function for parallel execution.
@@ -186,7 +440,18 @@ class AblationRunner:
         
         total_runs = len(combinations) * len(seeds)
         
-        print(f"\n{'='*60}")
+        # Determine worker count for estimation
+        if n_workers is None:
+            actual_workers = max(1, (os.cpu_count() or 1) - 1)
+        else:
+            actual_workers = n_workers
+        
+        # Show time estimation BEFORE starting
+        estimate = time_estimator.estimate_total_time(sweep_config, seeds, actual_workers)
+        system_info = time_estimator.get_system_info()
+        time_estimator.print_estimation(estimate, system_info)
+        
+        print(f"{'='*60}")
         print(f"Ablation Study: {sweep_name}")
         print(f"{'='*60}")
         print(f"Parameters: {param_names}")
@@ -225,6 +490,9 @@ class AblationRunner:
             print_cpu_info(workers_used=1)
             print("Running in sequential mode...")
             
+            # Start progress tracking
+            time_estimator.start_tracking(total_runs)
+            
             results = []
             individual_times = []
             run_index = 0
@@ -232,14 +500,20 @@ class AblationRunner:
             
             for params, seed in tasks:
                 run_index += 1
-                print(f"  [{run_index}/{total_runs}] {params} seed={seed}")
+                
+                # Show progress bar with ETA
+                time_estimator.print_progress(f"| {params} seed={seed}")
                 
                 try:
                     result, elapsed = _run_single_task(params, seed)
                     results.append(result)
                     individual_times.append(elapsed)
+                    
+                    # Record for ETA calculation
+                    time_estimator.record_run(elapsed)
+                    
                 except Exception as e:
-                    print(f"    ERROR: {e}")
+                    print(f"\n    ERROR: {e}")
                     # Record error
                     results.append({
                         **params,
@@ -250,6 +524,8 @@ class AblationRunner:
                 
                 # Reset for next run
                 self.reset_config()
+            
+            print()  # New line after progress bar
             
             total_time = time.time() - start_time
             print_performance_summary(
