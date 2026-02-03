@@ -82,8 +82,8 @@ SLOT_DURATION = IEEE_802_11['slot_duration']
 SIFS_DURATION = IEEE_802_11['SIFS']
 DIFS_DURATION = SIFS_DURATION + (2 * SLOT_DURATION)
 CW_MIN = 31  # initial contention window size
-ACK_TIMEOUT = ACK_PACKET_LENGTH / BIT_RATE * 1e6 + SIFS_DURATION + 50  # maximum waiting time for ACK, in us
-MAX_RETRANSMISSION_ATTEMPT = 5
+ACK_TIMEOUT = ACK_PACKET_LENGTH / BIT_RATE * 1e6 + SIFS_DURATION + 100  # maximum waiting time for ACK, in us
+MAX_RETRANSMISSION_ATTEMPT = 3                  # reduced for TDMA to cause sharper drop at high traffic
 
 # ------------------- experiment knobs (added for sweeps) ------------------- #
 # Traffic generation (per-drone)
@@ -100,8 +100,14 @@ MAC_MODE = "TDMA"  # "TDMA", "CSMA", "ALOHA", "STDMA", or "ADAPTIVE"
 # At 2 Mbps (802.11b), 1KB packet = 8192 bits / 2Mbps = 4096 µs
 # So slot must be > 4096 + SIFS + ACK_time ≈ 5000 µs
 TDMA_SLOT_DURATION = 5000                        # us, duration of one time slot
-TDMA_SLOTS_PER_FRAME = 10                        # number of slots per frame
+TDMA_SLOTS_PER_FRAME = 20                        # number of slots per frame (increased for more capacity)
 TDMA_GUARD_TIME = 50                             # us, guard time between slots
+TDMA_SLOTS_PER_DRONE = 1                         # slots assigned per drone (causes saturation at high traffic)
+
+# Dynamic TDMA (queue-aware slot allocation) - like real industrial TDMA systems
+TDMA_ENABLE_DYNAMIC = True                       # enable dynamic slot reallocation based on queue depth
+TDMA_MAX_SLOTS_PER_DRONE = 3                     # maximum slots a drone can claim under dynamic allocation
+TDMA_REALLOC_INTERVAL = 500000                   # us (500ms), period for reallocation checks
 
 
 # ------------------- CSMA/CA specific parameters ------------------- #
